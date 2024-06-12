@@ -1,0 +1,8 @@
+1. md <folder_name>  - (the new folder creation and md= Make Directory)
+2. devmgmt.msc in run - device management (The information of the hardware connected to it will be present)
+3. msinfo32 in run - in-detailed information related to the device management
+4. dismgmt.msc in run - disk management (Complete information about the hard disk)
+5. dxdiag in run - direct X diagnostic tool (Information related to the graphics card/memory/audio type)
+
+.msc - Microsoft console
+msinfo - Microsoft system information 
