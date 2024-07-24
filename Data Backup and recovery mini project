@@ -1,0 +1,198 @@
+PROJECT STATEMENT:    Implementing Data Backup and Recovery Using EBS Snapshots.
+TECHNOLOGY USED  :    AWS CLOUD 
+USED PATHWAYS    :    DATA BACKUP IN GUI & CLI
+METHODS          :    
+                    1. WINDOW SERVER DATA BACKUP -> GUI
+                    2. LINUX SERVER DATA BACKUP -> CLI
+                    3. AWS SDK FOR PYTHON [BOTO3] -> CLI
+METHOD - 3:
+        AWS SDK FOR PYTHON:
+METHOD – 3: USING AWS SDK FOR PYTHON(BOTO3)
+
+1.	 Create  a cloud9 environment
+
+2.	To use the terminal firstly need to give the configurations as a root user.
+Command:
+		aws configure
+Output:
+	
+3.	Install boto3(AWS SDK for python)
+Command: pip install boto3
+Output:
+ 
+1. CREATE VOLUME CODE:
+import boto3
+
+# Initialize the EC2 client
+ec2 = boto3.client('ec2')
+
+def create_volume(size, availability_zone, volume_type='gp2'):
+    response = ec2.create_volume(
+        Size=size,
+        AvailabilityZone=availability_zone,
+        VolumeType=volume_type
+    )
+    return response['VolumeId']
+
+# Example usage
+size = 3  # Size in GiB
+availability_zone = 'us-east-1c'  # Replace with your desired availability zone
+volume_id = create_volume(size, availability_zone)
+print(f'Volume created with ID: {volume_id}')
+
+COMMAND: python3 create_volume.py
+
+
+
+2. ATTACHING VOLUME CODE:
+import boto3
+
+# Initialize the EC2 client
+ec2 = boto3.client('ec2', region_name='us-east-1')  # Replace with your region
+
+def attach_volume(volume_id, instance_id, device_name='/dev/sdb'):
+    response = ec2.attach_volume(
+        VolumeId=volume_id,
+        InstanceId=instance_id,
+        Device=device_name
+    )
+    return response
+
+# Example usage
+volume_id = 'vol-07885de79e4255c03'  # Replace with your volume ID
+instance_id = 'i-0ebe8f8caf1ae1269'  # Replace with your EC2 instance ID
+device_name = '/dev/sdb'  # Replace with the device name
+
+response = attach_volume(volume_id, instance_id, device_name)
+print(f'Volume attached: {response}')
+ 
+
+3.Now we create a directory in the /mnt where we need keep the data file so that need to use the below commands.
+  -> lsblk
+  -> sudo mkfs -t ext4 /dev/sdb
+  -> sudo mkdir /mnt/mydata
+  -> sudo mount /dev/sdb /mnt/mydata
+  -> echo ' MY Output of echo' | sudo tee -a /etc/fstab
+  -> sudo chown ec2-user:ec2-user /mt/mydata
+  -> ls -ld /mnt/directorydata
+
+
+
+4.WRITING DATA TO FILE:
+ import os
+
+# Path to the mounted volume
+mount_path = '/mnt/mydata'  # Replace with your mount path
+
+def write_data_to_file(file_name, data):
+    file_path = os.path.join(mount_path, file_name)
+    with open(file_path, 'w') as file:
+        file.write(data)
+    print(f'Data written to {file_path}')
+# Example usage
+file_name = 'example.txt'
+data = 'ISHIP'
+write_data_to_file(file_name, data)
+
+ 
+
+
+5.CREATING SNAPSHOT CODE:
+import boto3
+
+# Initialize the EC2 client
+ec2 = boto3.client('ec2', region_name='us-east-1')  # Replace with your region
+
+def create_snapshot(volume_id, description='My snapshot'):
+    response = ec2.create_snapshot(
+        VolumeId=volume_id,
+        Description=description
+    )
+    return response['SnapshotId']
+
+# Example usage
+volume_id = 'vol-039dbc0e8b21635cc'  # Replace with your volume ID
+snapshot_id = create_snapshot(volume_id)
+print(f'Snapshot created with ID: {snapshot_id}')
+
+ 
+
+6.CODE TO DETACH AND DELETE THE VOLUME:
+import boto3
+# Initialize the EC2 client
+ec2 = boto3.client('ec2', region_name='us-east-1')  # Replace with your region
+
+def detach_volume(volume_id):
+    response = ec2.detach_volume(VolumeId=volume_id)
+    print(f'Volume {volume_id} detached successfully.')
+    return response
+
+def delete_volume(volume_id):
+    response = ec2.delete_volume(VolumeId=volume_id)
+    print(f'Volume {volume_id} deleted successfully.')
+    return response
+
+# Example usage
+volume_id = 'vol-039dbc0e8b21635cc'  # Replace with your volume ID
+
+# Detach the volume
+detach_volume(volume_id)
+
+# Wait for the volume to detach
+ec2.get_waiter('volume_available').wait(VolumeIds=[volume_id])
+
+# Delete the volume
+delete_volume(volume_id)
+
+ 
+
+7.CREATING VOLUME FROM SNAPSHOT AND ATTACHING TO VOLUME :
+import boto3
+
+# Initialize the EC2 client
+ec2 = boto3.client('ec2', region_name='us-east-1')  # Replace with your region
+
+def create_volume_from_snapshjot(snapshot_id, availability_zone, volume_type='gp2'):
+    response = ec2.create_volume(
+        SnapshotId=snapshot_id,
+        AvailabilityZone=availability_zone,
+        VolumeType=volume_type
+    )
+    volume_id = response['VolumeId']
+    print(f'Volume created from snapshot with ID: {volume_id}')
+    return volume_id
+
+def attach_volume(volume_id, instance_id, device_name='/dev/sdb'):
+    response = ec2.attach_volume(
+        VolumeId=volume_id,
+        InstanceId=instance_id,
+        Device=device_name
+    )
+    print(f'Volume {volume_id} attached to instance {instance_id} as {device_name}.')
+    return response
+
+# Example usage
+snapshot_id = 'snap-0849a431f660c37cc'  # Replace with your snapshot ID
+availability_zone = 'us-east-1c'  # Replace with your desired availability zone
+instance_id = 'i-0e3c47e11e7c995ea'  # Replace with your instance ID
+
+# Create a volume from the snapshot
+new_volume_id = create_volume_from_snapshot(snapshot_id, availability_zone)
+
+# Wait for the volume to become available
+ec2.get_waiter('volume_available').wait(VolumeIds=[new_volume_id])
+
+# Attach the volume to the instance
+attach_volume(new_volume_id, instance_id)
+
+ 
+
+ 
+
+
+8. As volume is backed need to mount it by using below commands.
+  -> sudo unmount /mnt/mydata
+  -> sudo mount /dev/xvdb /mnt/mydata
+  -> cat /mnt/mydata/example.txt
+      O/P: So the data in the example.txt is retrieved.
+
